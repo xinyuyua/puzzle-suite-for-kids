@@ -2,6 +2,12 @@
 
 This game can be published to GitHub Pages because it now runs entirely in the browser as a static site.
 
+## Live Demo
+
+Play it here:
+
+[https://xinyuyua.github.io/puzzle-suite-for-kids/](https://xinyuyua.github.io/puzzle-suite-for-kids/)
+
 ## Local Use
 
 Open [/Users/xinyuyuan/workspace/game1/index.html](/Users/xinyuyuan/workspace/game1/index.html) in a browser, or keep using Flask if you still want a tiny local server.
