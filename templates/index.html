@@ -101,15 +101,37 @@
 
         .instructions {
             margin-bottom: 18px;
-            padding: 14px 16px;
             border-radius: 16px;
             background: rgba(223, 212, 195, 0.42);
             line-height: 1.45;
+            overflow: hidden;
         }
 
-        .instructions h2 {
-            margin: 0 0 8px;
+        .instructions summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 14px 16px;
             font-size: 18px;
+            font-weight: bold;
+        }
+
+        .instructions summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .instructions summary::after {
+            content: "+";
+            float: right;
+            font-size: 22px;
+            line-height: 1;
+        }
+
+        .instructions[open] summary::after {
+            content: "-";
+        }
+
+        .instructions-content {
+            padding: 0 16px 14px;
         }
 
         .instructions p {
@@ -163,20 +185,21 @@
 
         .color-4,
         .color-5 {
-            background: #fff6c8 !important;
-            color: #534400;
+            background: #fff !important;
+            color: #555;
+            border: 1px solid #c9c0b4;
         }
 
         .color-6,
         .color-7 {
-            background: #7cc7ff !important;
-            color: #08324d;
+            background: #ffe168 !important;
+            color: #5c4700;
         }
 
         .color-8,
         .color-9 {
-            background: #cab8ff !important;
-            color: #2b175c;
+            background: #7cc7ff !important;
+            color: #08324d;
         }
 
         .status {
@@ -213,10 +236,10 @@
     </div>
 
     <div class="card">
-        <section class="instructions" aria-label="Game instructions">
-            <h2>How to Play</h2>
-            <div id="instructions-content"></div>
-        </section>
+        <details class="instructions">
+            <summary>How to Play</summary>
+            <div class="instructions-content" id="instructions-content"></div>
+        </details>
         <div id="grid-container"></div>
         <p class="status" id="status"></p>
     </div>
