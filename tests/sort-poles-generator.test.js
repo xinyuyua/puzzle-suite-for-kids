@@ -169,21 +169,25 @@ function findSortSolution(initialState, capacity = 10, maxDepth = 8) {
 function createRandomSortCandidate(random, capacity = 10) {
     const state = createSolvedSortState(capacity);
     const colorPoleIndexes = shuffle([0, 1, 2, 3, 4], random);
-    const firstPole = colorPoleIndexes[0];
-    const secondPole = colorPoleIndexes[1];
-    const firstColor = state[firstPole][0];
-    const secondColor = state[secondPole][0];
-    const firstSwapCount = 1 + Math.floor(random() * 3);
-    const secondSwapCount = 1 + Math.floor(random() * 3);
+    const pairCount = random() < 0.5 ? 2 : 1;
 
-    state[firstPole] = [
-        ...Array(capacity - firstSwapCount).fill(firstColor),
-        ...Array(firstSwapCount).fill(secondColor)
-    ];
-    state[secondPole] = [
-        ...Array(capacity - secondSwapCount).fill(secondColor),
-        ...Array(secondSwapCount).fill(firstColor)
-    ];
+    for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
+        const firstPole = colorPoleIndexes[pairIndex * 2];
+        const secondPole = colorPoleIndexes[pairIndex * 2 + 1];
+        const firstColor = state[firstPole][0];
+        const secondColor = state[secondPole][0];
+        const firstSwapCount = 1 + Math.floor(random() * 3);
+        const secondSwapCount = 1 + Math.floor(random() * 3);
+
+        state[firstPole] = [
+            ...Array(capacity - firstSwapCount).fill(firstColor),
+            ...Array(firstSwapCount).fill(secondColor)
+        ];
+        state[secondPole] = [
+            ...Array(capacity - secondSwapCount).fill(secondColor),
+            ...Array(secondSwapCount).fill(firstColor)
+        ];
+    }
 
     return shuffle(state.map((pole) => [...pole]), random);
 }

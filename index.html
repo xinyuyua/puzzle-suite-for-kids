@@ -242,11 +242,19 @@
             background: rgba(255, 252, 246, 0.9);
             padding: 8px 5px 10px;
             min-width: 0;
+            appearance: none;
+            -webkit-appearance: none;
         }
 
         .pole-button.selected {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(47, 125, 50, 0.16);
+            box-shadow: inset 0 0 0 2px rgba(47, 125, 50, 0.18);
+            background: rgba(241, 250, 241, 0.98);
+        }
+
+        .pole-button:focus-visible {
+            outline: 2px solid rgba(47, 125, 50, 0.35);
+            outline-offset: 2px;
         }
 
         .pole-track {
@@ -766,7 +774,7 @@
                 .sort((left, right) => scoreSortMove(state, right, capacity) - scoreSortMove(state, left, capacity));
         }
 
-        function findSortSolution(initialState, config, maxDepth = 8) {
+        function findSortSolution(initialState, config, maxDepth = 12) {
             for (let depthLimit = 1; depthLimit <= maxDepth; depthLimit += 1) {
                 const seen = new Map();
                 const solution = searchSortSolution(initialState, config.capacity, depthLimit, seen, null);
@@ -809,21 +817,25 @@
         function createRandomSortCandidate(config) {
             const state = createSolvedSortState(config);
             const colorPoleIndexes = shuffle([0, 1, 2, 3, 4]);
-            const firstPole = colorPoleIndexes[0];
-            const secondPole = colorPoleIndexes[1];
-            const firstColor = state[firstPole][0];
-            const secondColor = state[secondPole][0];
-            const firstSwapCount = 1 + Math.floor(Math.random() * 3);
-            const secondSwapCount = 1 + Math.floor(Math.random() * 3);
+            const pairCount = Math.random() < 0.5 ? 2 : 1;
 
-            state[firstPole] = [
-                ...Array(config.capacity - firstSwapCount).fill(firstColor),
-                ...Array(firstSwapCount).fill(secondColor)
-            ];
-            state[secondPole] = [
-                ...Array(config.capacity - secondSwapCount).fill(secondColor),
-                ...Array(secondSwapCount).fill(firstColor)
-            ];
+            for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
+                const firstPole = colorPoleIndexes[pairIndex * 2];
+                const secondPole = colorPoleIndexes[pairIndex * 2 + 1];
+                const firstColor = state[firstPole][0];
+                const secondColor = state[secondPole][0];
+                const firstSwapCount = 1 + Math.floor(Math.random() * 3);
+                const secondSwapCount = 1 + Math.floor(Math.random() * 3);
+
+                state[firstPole] = [
+                    ...Array(config.capacity - firstSwapCount).fill(firstColor),
+                    ...Array(firstSwapCount).fill(secondColor)
+                ];
+                state[secondPole] = [
+                    ...Array(config.capacity - secondSwapCount).fill(secondColor),
+                    ...Array(secondSwapCount).fill(firstColor)
+                ];
+            }
 
             return shuffle(state.map((pole) => [...pole]));
         }
