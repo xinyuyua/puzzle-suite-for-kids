@@ -789,10 +789,9 @@
                 for (let step = 0; step < config.scrambleMoves; step += 1) {
                     const legalMoves = getLegalSortMoves(state, config.capacity).filter((move) => {
                         if (!previousMove) {
-                            return state[move.to][state[move.to].length - 1] !== move.color;
+                            return true;
                         }
-                        return !(move.from === previousMove.to && move.to === previousMove.from)
-                            && state[move.to][state[move.to].length - 1] !== move.color;
+                        return !(move.from === previousMove.to && move.to === previousMove.from);
                     });
 
                     if (!legalMoves.length) {
