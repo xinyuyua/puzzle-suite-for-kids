@@ -208,6 +208,8 @@
 
         .status {
             min-height: 56px;
+            width: 400px;
+            max-width: 100%;
             text-align: center;
             font-weight: bold;
             margin: 16px 0 0;
@@ -222,7 +224,6 @@
         }
 
         .status.sort-status {
-            width: 100%;
             justify-content: flex-start;
             text-align: left;
         }
@@ -381,7 +382,7 @@
 
     <footer class="footer">
         Made with love for puzzle time.
-        <span class="footer-version">Version 2026.04.29.1</span>
+        <span class="footer-version" id="footer-version" data-fallback-version="08b9126">Version 08b9126</span>
     </footer>
 
     <script>
@@ -416,7 +417,7 @@
                 poles: 7,
                 capacity: 10,
                 colors: ["red", "yellow", "green", "blue", "orange"],
-                scrambleMoves: 40,
+                maxRunLength: 3,
                 instructions: `
                     <p><strong>Color Sort Poles</strong> uses 7 poles and 50 sliding blocks.</p>
                     <p>There are <strong>5 colors</strong> with <strong>10 blocks per color</strong>, and each pole can hold at most <strong>10 blocks</strong>.</p>
@@ -441,6 +442,23 @@
             selectedPole: null,
             animating: false
         };
+
+        async function updateFooterVersion() {
+            const footerVersion = document.getElementById("footer-version");
+            const fallbackVersion = footerVersion.dataset.fallbackVersion;
+
+            try {
+                const response = await fetch("https://api.github.com/repos/xinyuyua/puzzle-suite-for-kids/commits/main");
+                if (!response.ok) {
+                    throw new Error("Could not load commit version");
+                }
+                const data = await response.json();
+                const shortSha = data.sha.slice(0, 7);
+                footerVersion.textContent = `Version ${shortSha}`;
+            } catch (error) {
+                footerVersion.textContent = `Version ${fallbackVersion}`;
+            }
+        }
 
         function createBoard(size) {
             return Array.from({ length: size }, () => Array(size).fill(0));
@@ -791,7 +809,7 @@
                 .sort((left, right) => scoreSortMove(state, right, capacity) - scoreSortMove(state, left, capacity));
         }
 
-        function findSortSolution(initialState, config, maxDepth = 12) {
+        function findSortSolution(initialState, config, maxDepth = 14) {
             for (let depthLimit = 1; depthLimit <= maxDepth; depthLimit += 1) {
                 const seen = new Map();
                 const solution = searchSortSolution(initialState, config.capacity, depthLimit, seen, null);
@@ -832,29 +850,54 @@
         }
 
         function createRandomSortCandidate(config) {
-            const state = createSolvedSortState(config);
-            const colorPoleIndexes = shuffle([0, 1, 2, 3, 4]);
-            const pairCount = Math.random() < 0.5 ? 2 : 1;
+            const buildAttempts = 100;
 
-            for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
-                const firstPole = colorPoleIndexes[pairIndex * 2];
-                const secondPole = colorPoleIndexes[pairIndex * 2 + 1];
-                const firstColor = state[firstPole][0];
-                const secondColor = state[secondPole][0];
-                const firstSwapCount = 1 + Math.floor(Math.random() * 3);
-                const secondSwapCount = 1 + Math.floor(Math.random() * 3);
+            for (let attempt = 0; attempt < buildAttempts; attempt += 1) {
+                const poles = config.colors.map((color) => Array(config.capacity).fill(color));
+                const pairCount = Math.random() < 0.5 ? 2 : 1;
+                const pairPoleIndexes = shuffle([0, 1, 2, 3, 4]);
 
-                state[firstPole] = [
-                    ...Array(config.capacity - firstSwapCount).fill(firstColor),
-                    ...Array(firstSwapCount).fill(secondColor)
-                ];
-                state[secondPole] = [
-                    ...Array(config.capacity - secondSwapCount).fill(secondColor),
-                    ...Array(secondSwapCount).fill(firstColor)
-                ];
+                for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
+                    const firstPoleIndex = pairPoleIndexes[pairIndex * 2];
+                    const secondPoleIndex = pairPoleIndexes[pairIndex * 2 + 1];
+                    const firstColor = config.colors[firstPoleIndex];
+                    const secondColor = config.colors[secondPoleIndex];
+                    const chunkCount = 2 + Math.floor(Math.random() * 2);
+                    const chunkSizes = [];
+                    let totalMixed = 0;
+
+                    for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex += 1) {
+                        const size = 1 + Math.floor(Math.random() * config.maxRunLength);
+                        chunkSizes.push(size);
+                        totalMixed += size;
+                    }
+
+                    if (totalMixed >= config.capacity) {
+                        continue;
+                    }
+
+                    const firstPole = Array(config.capacity - totalMixed).fill(firstColor);
+                    const secondPole = Array(config.capacity - totalMixed).fill(secondColor);
+
+                    chunkSizes.forEach((size, chunkIndex) => {
+                        const firstChunkColor = chunkIndex % 2 === 0 ? secondColor : firstColor;
+                        const secondChunkColor = chunkIndex % 2 === 0 ? firstColor : secondColor;
+                        firstPole.push(...Array(size).fill(firstChunkColor));
+                        secondPole.push(...Array(size).fill(secondChunkColor));
+                    });
+
+                    poles[firstPoleIndex] = firstPole;
+                    poles[secondPoleIndex] = secondPole;
+                }
+
+                if (poles.some((pole) => pole.length !== config.capacity)) {
+                    continue;
+                }
+
+                return [...poles, [], []];
             }
 
-            return state.map((pole) => [...pole]);
+            return null;
         }
 
         function renderSortGame() {
@@ -930,8 +973,7 @@
 
             for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
                 const candidate = createRandomSortCandidate(config);
-                const solution = findSortSolution(candidate, config, 8);
-                if (!solution) {
+                if (!candidate) {
                     continue;
                 }
 
@@ -939,10 +981,10 @@
                 sortState.current = cloneSortState(candidate);
                 sortState.selectedPole = null;
                 sortState.animating = false;
-                sortState.solutionMoves = solution;
+                sortState.solutionMoves = [];
 
                 renderSortGame();
-                setStatus("New solvable pole puzzle generated. Sort each color onto its own pole.");
+                setStatus("New pole puzzle generated. Press Show Solution if you want the app to search for an answer.");
                 return;
             }
 
@@ -1011,9 +1053,20 @@
         }
 
         async function showSortSolution() {
-            if (!sortState.initial || !sortState.solutionMoves.length) {
+            if (!sortState.initial) {
                 setStatus("Generate a pole puzzle first.");
                 return;
+            }
+
+            if (!sortState.solutionMoves.length) {
+                setStatus("Finding a solution for this puzzle...");
+                await sleep(20);
+                const solution = findSortSolution(sortState.initial, games[currentGame]);
+                if (!solution) {
+                    setStatus("No solution found for this puzzle.");
+                    return;
+                }
+                sortState.solutionMoves = solution;
             }
 
             sortState.current = cloneSortState(sortState.initial);
@@ -1106,6 +1159,7 @@
             }
         });
 
+        updateFooterVersion();
         initGame();
     </script>
 </body>
