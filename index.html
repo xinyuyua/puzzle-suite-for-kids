@@ -295,6 +295,11 @@
             border-color: #a17dd8;
         }
 
+        .sort-orange {
+            background: #ffba66;
+            border-color: #d48a2c;
+        }
+
         .pole-base {
             width: 52px;
             height: 8px;
@@ -385,7 +390,7 @@
                 type: "color-sort",
                 poles: 7,
                 capacity: 10,
-                colors: ["red", "yellow", "blue", "green", "purple"],
+                colors: ["red", "yellow", "green", "blue", "orange"],
                 scrambleMoves: 40,
                 instructions: `
                     <p><strong>Color Sort Poles</strong> uses 7 poles and 50 sliding blocks.</p>
@@ -711,6 +716,118 @@
             return movingGroup;
         }
 
+        function getSortStateKey(state) {
+            return state.map((pole) => pole.join(",")).join("|");
+        }
+
+        function isUniformPole(pole) {
+            return pole.length > 0 && pole.every((color) => color === pole[0]);
+        }
+
+        function scoreSortMove(state, move, capacity) {
+            const destination = state[move.to];
+            let score = 0;
+
+            if (destination.length === 0) {
+                score += 1;
+            }
+            if (destination[destination.length - 1] === move.color) {
+                score += 5;
+            }
+            if (isUniformPole(state[move.from]) && state[move.from].length === capacity) {
+                score -= 3;
+            }
+            return score;
+        }
+
+        function getPreferredSortMoves(state, capacity, lastMove = null) {
+            const emptyTargets = state
+                .map((pole, index) => ({ pole, index }))
+                .filter(({ pole }) => pole.length === 0)
+                .map(({ index }) => index);
+            const firstEmptyTarget = emptyTargets.length ? emptyTargets[0] : null;
+
+            return getLegalSortMoves(state, capacity)
+                .filter((move) => {
+                    if (lastMove && move.from === lastMove.to && move.to === lastMove.from && move.count === lastMove.count && move.color === lastMove.color) {
+                        return false;
+                    }
+
+                    if (state[move.to].length === 0 && firstEmptyTarget !== null && move.to !== firstEmptyTarget) {
+                        return false;
+                    }
+
+                    if (isUniformPole(state[move.from]) && state[move.from].length === capacity && state[move.to].length === 0) {
+                        return false;
+                    }
+
+                    return true;
+                })
+                .sort((left, right) => scoreSortMove(state, right, capacity) - scoreSortMove(state, left, capacity));
+        }
+
+        function findSortSolution(initialState, config, maxDepth = 8) {
+            for (let depthLimit = 1; depthLimit <= maxDepth; depthLimit += 1) {
+                const seen = new Map();
+                const solution = searchSortSolution(initialState, config.capacity, depthLimit, seen, null);
+                if (solution) {
+                    return solution;
+                }
+            }
+            return null;
+        }
+
+        function searchSortSolution(state, capacity, depthRemaining, seen, lastMove) {
+            if (isSortSolved(state)) {
+                return [];
+            }
+
+            if (depthRemaining === 0) {
+                return null;
+            }
+
+            const stateKey = getSortStateKey(state);
+            const bestSeen = seen.get(stateKey);
+            if (bestSeen !== undefined && bestSeen >= depthRemaining) {
+                return null;
+            }
+            seen.set(stateKey, depthRemaining);
+
+            const moves = getPreferredSortMoves(state, capacity, lastMove);
+            for (const move of moves) {
+                const nextState = cloneSortState(state);
+                applySortMove(nextState, move.from, move.to);
+                const suffix = searchSortSolution(nextState, capacity, depthRemaining - 1, seen, move);
+                if (suffix) {
+                    return [move, ...suffix];
+                }
+            }
+
+            return null;
+        }
+
+        function createRandomSortCandidate(config) {
+            const state = createSolvedSortState(config);
+            const colorPoleIndexes = shuffle([0, 1, 2, 3, 4]);
+            const firstPole = colorPoleIndexes[0];
+            const secondPole = colorPoleIndexes[1];
+            const firstColor = state[firstPole][0];
+            const secondColor = state[secondPole][0];
+            const firstSwapCount = 1 + Math.floor(Math.random() * 3);
+            const secondSwapCount = 1 + Math.floor(Math.random() * 3);
+
+            state[firstPole] = [
+                ...Array(config.capacity - firstSwapCount).fill(firstColor),
+                ...Array(firstSwapCount).fill(secondColor)
+            ];
+            state[secondPole] = [
+                ...Array(config.capacity - secondSwapCount).fill(secondColor),
+                ...Array(secondSwapCount).fill(firstColor)
+            ];
+
+            return shuffle(state.map((pole) => [...pole]));
+        }
+
         function renderSortGame() {
             const config = games[currentGame];
             const container = document.getElementById("grid-container");
@@ -778,50 +895,23 @@
 
         function generateSortPuzzle() {
             const config = games[currentGame];
-            const maxAttempts = 200;
+            const maxAttempts = 120;
 
             for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-                const state = createSolvedSortState(config);
-                const scrambleHistory = [];
-                let previousMove = null;
-                let failedAttempt = false;
-
-                for (let step = 0; step < config.scrambleMoves; step += 1) {
-                    const legalMoves = getLegalSortMoves(state, config.capacity).filter((move) => {
-                        if (!previousMove) {
-                            return true;
-                        }
-                        return !(move.from === previousMove.to && move.to === previousMove.from);
-                    });
-
-                    if (!legalMoves.length) {
-                        failedAttempt = true;
-                        break;
-                    }
-
-                    const move = legalMoves[Math.floor(Math.random() * legalMoves.length)];
-                    applySortMove(state, move.from, move.to);
-                    scrambleHistory.push(move);
-                    previousMove = move;
-                }
-
-                if (failedAttempt || isSortSolved(state)) {
+                const candidate = createRandomSortCandidate(config);
+                const solution = findSortSolution(candidate, config, 8);
+                if (!solution) {
                     continue;
                 }
 
-                sortState.initial = cloneSortState(state);
-                sortState.current = cloneSortState(state);
+                sortState.initial = cloneSortState(candidate);
+                sortState.current = cloneSortState(candidate);
                 sortState.selectedPole = null;
                 sortState.animating = false;
-                sortState.solutionMoves = scrambleHistory.slice().reverse().map((move) => ({
-                    from: move.to,
-                    to: move.from,
-                    count: move.count,
-                    color: move.color
-                }));
+                sortState.solutionMoves = solution;
 
                 renderSortGame();
-                setStatus("New pole puzzle generated. Sort each color onto its own pole.");
+                setStatus("New solvable pole puzzle generated. Sort each color onto its own pole.");
                 return;
             }
 
