@@ -189,7 +189,7 @@ function createRandomSortCandidate(random, capacity = 10) {
         ];
     }
 
-    return shuffle(state.map((pole) => [...pole]), random);
+    return state.map((pole) => [...pole]);
 }
 
 function generateRandomSolvablePuzzle({ seed = 1, maxAttempts = 80, capacity = 10, maxDepth = 8 } = {}) {
@@ -236,6 +236,16 @@ runTest("generated puzzle solves by replaying the discovered solution", () => {
     assert.ok(generated, "expected generator to produce a puzzle");
     const solved = replaySolution(generated.candidate, generated.solution);
     assert.strictEqual(isSortSolved(solved), true);
+});
+
+runTest("generated puzzle keeps poles 6 and 7 empty at the start", () => {
+    const generated = generateRandomSolvablePuzzle({ seed: 11 });
+    assert.ok(generated, "expected generator to produce a puzzle");
+    assert.strictEqual(generated.candidate[5].length, 0);
+    assert.strictEqual(generated.candidate[6].length, 0);
+    for (let index = 0; index < 5; index += 1) {
+        assert.strictEqual(generated.candidate[index].length, 10);
+    }
 });
 
 runTest("generator is stable across several seeds", () => {

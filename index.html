@@ -328,6 +328,14 @@
             color: rgba(43, 42, 40, 0.72);
         }
 
+        .footer-version {
+            display: block;
+            margin-top: 4px;
+            font-size: 12px;
+            letter-spacing: 0.04em;
+            color: rgba(43, 42, 40, 0.56);
+        }
+
         @media (max-width: 640px) {
             .cell {
                 width: 36px;
@@ -365,7 +373,10 @@
         <p class="status" id="status"></p>
     </div>
 
-    <footer class="footer">Made with love for puzzle time.</footer>
+    <footer class="footer">
+        Made with love for puzzle time.
+        <span class="footer-version">Version 2026.04.29.1</span>
+    </footer>
 
     <script>
         const games = {
@@ -837,7 +848,7 @@
                 ];
             }
 
-            return shuffle(state.map((pole) => [...pole]));
+            return state.map((pole) => [...pole]);
         }
 
         function renderSortGame() {
