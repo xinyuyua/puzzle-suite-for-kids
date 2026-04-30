@@ -849,55 +849,35 @@
             return null;
         }
 
-        function createRandomSortCandidate(config) {
-            const buildAttempts = 100;
-
-            for (let attempt = 0; attempt < buildAttempts; attempt += 1) {
-                const poles = config.colors.map((color) => Array(config.capacity).fill(color));
-                const pairCount = Math.random() < 0.5 ? 2 : 1;
-                const pairPoleIndexes = shuffle([0, 1, 2, 3, 4]);
-
-                for (let pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
-                    const firstPoleIndex = pairPoleIndexes[pairIndex * 2];
-                    const secondPoleIndex = pairPoleIndexes[pairIndex * 2 + 1];
-                    const firstColor = config.colors[firstPoleIndex];
-                    const secondColor = config.colors[secondPoleIndex];
-                    const chunkCount = 2 + Math.floor(Math.random() * 2);
-                    const chunkSizes = [];
-                    let totalMixed = 0;
-
-                    for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex += 1) {
-                        const size = 1 + Math.floor(Math.random() * config.maxRunLength);
-                        chunkSizes.push(size);
-                        totalMixed += size;
-                    }
-
-                    if (totalMixed >= config.capacity) {
-                        continue;
-                    }
-
-                    const firstPole = Array(config.capacity - totalMixed).fill(firstColor);
-                    const secondPole = Array(config.capacity - totalMixed).fill(secondColor);
-
-                    chunkSizes.forEach((size, chunkIndex) => {
-                        const firstChunkColor = chunkIndex % 2 === 0 ? secondColor : firstColor;
-                        const secondChunkColor = chunkIndex % 2 === 0 ? firstColor : secondColor;
-                        firstPole.push(...Array(size).fill(firstChunkColor));
-                        secondPole.push(...Array(size).fill(secondChunkColor));
-                    });
-
-                    poles[firstPoleIndex] = firstPole;
-                    poles[secondPoleIndex] = secondPole;
+        function createRandomSortCandidate() {
+            const colors = ['red', 'blue', 'green', 'yellow', 'orange'];
+            const nodesPerColor = 10;
+            const totalPoles = 5;
+            
+            // 1. Create the flat pool of 50 colors
+            let deck = [];
+            colors.forEach(color => {
+                for (let i = 0; i < nodesPerColor; i++) {
+                    deck.push(color);
                 }
+            });
 
-                if (poles.some((pole) => pole.length !== config.capacity)) {
-                    continue;
-                }
-
-                return [...poles, [], []];
+            // 2. Shuffle the deck (Fisher-Yates)
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
             }
 
-            return null;
+            // 3. Distribute into the poles structure
+            // We initialize an array of 5 empty arrays to represent the poles
+            let poles = Array.from({ length: totalPoles }, () => []);
+            
+            deck.forEach((color, index) => {
+                const poleIndex = Math.floor(index / 10);
+                poles[poleIndex].push(color);
+            });
+
+            return [...poles, [], []];
         }
 
         function renderSortGame() {
