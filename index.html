@@ -221,6 +221,12 @@
             overflow-wrap: anywhere;
         }
 
+        .status.sort-status {
+            width: 100%;
+            justify-content: flex-start;
+            text-align: left;
+        }
+
         .poles-board {
             display: grid;
             grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -856,6 +862,7 @@
             const container = document.getElementById("grid-container");
             container.innerHTML = "";
             document.getElementById("instructions-content").innerHTML = config.instructions;
+            document.getElementById("status").classList.add("sort-status");
 
             const board = document.createElement("div");
             board.className = "poles-board";
@@ -910,6 +917,7 @@
         function renderCurrentGame() {
             updateControls();
             if (games[currentGame].type === "tiling") {
+                document.getElementById("status").classList.remove("sort-status");
                 renderTilingBoard();
             } else {
                 renderSortGame();
