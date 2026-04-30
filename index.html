@@ -778,49 +778,55 @@
 
         function generateSortPuzzle() {
             const config = games[currentGame];
-            const state = createSolvedSortState(config);
-            const scrambleHistory = [];
-            let previousMove = null;
-            const totalMoves = config.scrambleMoves;
+            const maxAttempts = 200;
 
-            for (let step = 0; step < totalMoves; step += 1) {
-                const legalMoves = getLegalSortMoves(state, config.capacity).filter((move) => {
-                    if (!previousMove) {
-                        return state[move.to][state[move.to].length - 1] !== move.color;
+            for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+                const state = createSolvedSortState(config);
+                const scrambleHistory = [];
+                let previousMove = null;
+                let failedAttempt = false;
+
+                for (let step = 0; step < config.scrambleMoves; step += 1) {
+                    const legalMoves = getLegalSortMoves(state, config.capacity).filter((move) => {
+                        if (!previousMove) {
+                            return state[move.to][state[move.to].length - 1] !== move.color;
+                        }
+                        return !(move.from === previousMove.to && move.to === previousMove.from)
+                            && state[move.to][state[move.to].length - 1] !== move.color;
+                    });
+
+                    if (!legalMoves.length) {
+                        failedAttempt = true;
+                        break;
                     }
-                    return !(move.from === previousMove.to && move.to === previousMove.from)
-                        && state[move.to][state[move.to].length - 1] !== move.color;
-                });
 
-                if (!legalMoves.length) {
-                    generateSortPuzzle();
-                    return;
+                    const move = legalMoves[Math.floor(Math.random() * legalMoves.length)];
+                    applySortMove(state, move.from, move.to);
+                    scrambleHistory.push(move);
+                    previousMove = move;
                 }
 
-                const move = legalMoves[Math.floor(Math.random() * legalMoves.length)];
-                applySortMove(state, move.from, move.to);
-                scrambleHistory.push(move);
-                previousMove = move;
-            }
+                if (failedAttempt || isSortSolved(state)) {
+                    continue;
+                }
 
-            if (isSortSolved(state)) {
-                generateSortPuzzle();
+                sortState.initial = cloneSortState(state);
+                sortState.current = cloneSortState(state);
+                sortState.selectedPole = null;
+                sortState.animating = false;
+                sortState.solutionMoves = scrambleHistory.slice().reverse().map((move) => ({
+                    from: move.to,
+                    to: move.from,
+                    count: move.count,
+                    color: move.color
+                }));
+
+                renderSortGame();
+                setStatus("New pole puzzle generated. Sort each color onto its own pole.");
                 return;
             }
 
-            sortState.initial = cloneSortState(state);
-            sortState.current = cloneSortState(state);
-            sortState.selectedPole = null;
-            sortState.animating = false;
-            sortState.solutionMoves = scrambleHistory.slice().reverse().map((move) => ({
-                from: move.to,
-                to: move.from,
-                count: move.count,
-                color: move.color
-            }));
-
-            renderSortGame();
-            setStatus("New pole puzzle generated. Sort each color onto its own pole.");
+            setStatus("Could not generate a new pole puzzle right now. Try again.");
         }
 
         function resetSortPuzzle() {
