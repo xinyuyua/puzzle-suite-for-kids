@@ -223,9 +223,9 @@
 
         .poles-board {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
-            gap: 14px;
-            width: min(100%, 760px);
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 8px;
+            width: 100%;
         }
 
         .pole-card {
@@ -240,7 +240,8 @@
             border: 2px solid rgba(91, 81, 70, 0.22);
             border-radius: 18px;
             background: rgba(255, 252, 246, 0.9);
-            padding: 10px 8px 12px;
+            padding: 8px 5px 10px;
+            min-width: 0;
         }
 
         .pole-button.selected {
@@ -249,16 +250,16 @@
         }
 
         .pole-track {
-            height: 320px;
+            height: 232px;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
-            gap: 4px;
-            padding: 8px 8px 0;
+            gap: 3px;
+            padding: 6px 4px 0;
         }
 
         .pole-slot {
-            height: 24px;
+            height: 17px;
             border-radius: 999px;
             background: rgba(91, 81, 70, 0.08);
             border: 1px dashed rgba(91, 81, 70, 0.12);
@@ -295,14 +296,14 @@
         }
 
         .pole-base {
-            width: 72px;
-            height: 10px;
+            width: 52px;
+            height: 8px;
             border-radius: 999px;
             background: #5b5146;
         }
 
         .pole-label {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: bold;
             color: rgba(43, 42, 40, 0.8);
         }
@@ -391,7 +392,8 @@
                     <p>There are <strong>5 colors</strong> with <strong>10 blocks per color</strong>, and each pole can hold at most <strong>10 blocks</strong>.</p>
                     <ul>
                         <li>Click <strong>Generate Puzzle</strong> to create a new randomized setup.</li>
-                        <li>Click one pole to pick up its top block, then click another pole with room to move that block there.</li>
+                        <li>When you pick a pole, you must lift <strong>all top blocks of the same color together</strong>.</li>
+                        <li>You may place that full color group onto <strong>any pole with enough open space</strong>, regardless of the colors already there.</li>
                         <li>The goal is to gather every color onto its own single pole.</li>
                         <li>Use <strong>Show Solution</strong> to replay one valid solution from the generated start.</li>
                     </ul>
@@ -666,26 +668,47 @@
             return state.every((pole) => pole.length === 0 || (pole.length === 10 && pole.every((color) => color === pole[0])));
         }
 
+        function getTopColorGroup(state, poleIndex) {
+            const pole = state[poleIndex];
+            if (!pole.length) {
+                return [];
+            }
+
+            const topColor = pole[pole.length - 1];
+            const group = [];
+            for (let index = pole.length - 1; index >= 0; index -= 1) {
+                if (pole[index] !== topColor) {
+                    break;
+                }
+                group.unshift(pole[index]);
+            }
+            return group;
+        }
+
         function getLegalSortMoves(state, capacity) {
             const moves = [];
             for (let from = 0; from < state.length; from += 1) {
                 if (state[from].length === 0) {
                     continue;
                 }
+                const movingGroup = getTopColorGroup(state, from);
                 for (let to = 0; to < state.length; to += 1) {
-                    if (from === to || state[to].length >= capacity) {
+                    if (from === to || state[to].length + movingGroup.length > capacity) {
                         continue;
                     }
-                    moves.push({ from, to });
+                    moves.push({ from, to, color: movingGroup[0], count: movingGroup.length });
                 }
             }
             return moves;
         }
 
         function applySortMove(state, from, to) {
-            const block = state[from].pop();
-            state[to].push(block);
-            return block;
+            const movingGroup = getTopColorGroup(state, from);
+            for (let count = 0; count < movingGroup.length; count += 1) {
+                state[from].pop();
+            }
+            state[to].push(...movingGroup);
+            return movingGroup;
         }
 
         function renderSortGame() {
@@ -763,10 +786,16 @@
             for (let step = 0; step < totalMoves; step += 1) {
                 const legalMoves = getLegalSortMoves(state, config.capacity).filter((move) => {
                     if (!previousMove) {
-                        return true;
+                        return state[move.to][state[move.to].length - 1] !== move.color;
                     }
-                    return !(move.from === previousMove.to && move.to === previousMove.from);
+                    return !(move.from === previousMove.to && move.to === previousMove.from)
+                        && state[move.to][state[move.to].length - 1] !== move.color;
                 });
+
+                if (!legalMoves.length) {
+                    generateSortPuzzle();
+                    return;
+                }
 
                 const move = legalMoves[Math.floor(Math.random() * legalMoves.length)];
                 applySortMove(state, move.from, move.to);
@@ -785,7 +814,9 @@
             sortState.animating = false;
             sortState.solutionMoves = scrambleHistory.slice().reverse().map((move) => ({
                 from: move.to,
-                to: move.from
+                to: move.from,
+                count: move.count,
+                color: move.color
             }));
 
             renderSortGame();
@@ -819,9 +850,10 @@
                     return;
                 }
 
+                const movingGroup = getTopColorGroup(sortState.current, poleIndex);
                 sortState.selectedPole = poleIndex;
                 renderSortGame();
-                setStatus(`Pole ${poleIndex + 1} selected. Choose another pole with room.`);
+                setStatus(`Pole ${poleIndex + 1} selected with ${movingGroup.length} ${movingGroup[0]} block${movingGroup.length === 1 ? "" : "s"} on top. Choose another pole with enough room.`);
                 return;
             }
 
@@ -834,9 +866,10 @@
 
             const from = sortState.selectedPole;
             const to = poleIndex;
+            const movingGroup = getTopColorGroup(sortState.current, from);
 
-            if (sortState.current[to].length >= config.capacity) {
-                setStatus(`Pole ${to + 1} is full.`);
+            if (sortState.current[to].length + movingGroup.length > config.capacity) {
+                setStatus(`Pole ${to + 1} does not have enough room for ${movingGroup.length} block${movingGroup.length === 1 ? "" : "s"}.`);
                 return;
             }
 
@@ -847,7 +880,7 @@
             if (isSortSolved(sortState.current)) {
                 setStatus("Solved! Each color is grouped on its own pole.");
             } else {
-                setStatus(`Moved one block from Pole ${from + 1} to Pole ${to + 1}.`);
+                setStatus(`Moved ${movingGroup.length} ${movingGroup[0]} block${movingGroup.length === 1 ? "" : "s"} from Pole ${from + 1} to Pole ${to + 1}.`);
             }
         }
 
@@ -864,7 +897,7 @@
 
             for (let step = 0; step < sortState.solutionMoves.length; step += 1) {
                 const move = sortState.solutionMoves[step];
-                setStatus(`Solution step ${step + 1} of ${sortState.solutionMoves.length}: move the top block from Pole ${move.from + 1} to Pole ${move.to + 1}.`);
+                setStatus(`Solution step ${step + 1} of ${sortState.solutionMoves.length}: move ${move.count} ${move.color} block${move.count === 1 ? "" : "s"} from Pole ${move.from + 1} to Pole ${move.to + 1}.`);
                 await sleep(450);
                 if (games[currentGame].type !== "color-sort") {
                     sortState.animating = false;
