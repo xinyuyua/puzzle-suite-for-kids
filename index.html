@@ -242,6 +242,7 @@
     </div>
 
     <div class="controls">
+        <button type="button" id="generate-btn">Generate Puzzle</button>
         <button class="solve-btn" type="button" id="solve-btn">Solve</button>
         <button type="button" id="reset-btn">Reset</button>
     </div>
@@ -262,9 +263,11 @@
             "8x8_classic": {
                 size: 8,
                 clicks: 6,
+                starterBlocks: [[1, 1], [1, 2], [1, 3]],
                 blocks: [[1, 4], [1, 5], [2, 2], [3, 3], [2, 3], [2, 4], [2, 5], [3, 4]],
                 instructions: `
                     <p><strong>8x8 Classic</strong> starts by asking the player to create the black area first.</p>
+                    <p>You can tap the black squares yourself, or press <strong>Generate Puzzle</strong> to let the game build a random solvable setup for you.</p>
                     <p>For this puzzle, the black area must represent these three starting blocks placed randomly on the board:</p>
                     <ul>
                         <li>one <strong>1x1</strong> block</li>
@@ -284,6 +287,7 @@
             "6x6_mini": {
                 size: 6,
                 clicks: 3,
+                starterBlocks: [[1, 1], [1, 2]],
                 blocks: [[2, 2], [2, 3], [3, 3], [1, 4], [2, 4]],
                 instructions: `
                     <p><strong>6x6 Mini</strong> is a smaller version of the same idea.</p>
@@ -327,6 +331,19 @@
                     board[r][c] = value;
                 }
             }
+        }
+
+        function shuffle(list) {
+            const copy = [...list];
+            for (let i = copy.length - 1; i > 0; i -= 1) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+            }
+            return copy;
+        }
+
+        function cloneBoard(board) {
+            return board.map((row) => [...row]);
         }
 
         function blockId(fullList, width, height) {
@@ -403,6 +420,12 @@
             });
         }
 
+        function paintSelectedCells() {
+            selected.forEach(([row, col]) => {
+                document.getElementById(`cell-${row}-${col}`).classList.add("color-1");
+            });
+        }
+
         function initGame() {
             selected = [];
             renderBoard();
@@ -425,6 +448,74 @@
             element.classList.add("color-1");
         }
 
+        function generatePuzzle() {
+            const config = games[currentGame];
+            const maxAttempts = 500;
+
+            for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+                const board = createBoard(config.size);
+                const generatedCells = [];
+                let placedAllStarterBlocks = true;
+
+                for (const [blockWidth, blockHeight] of shuffle(config.starterBlocks)) {
+                    const orientations = blockWidth === blockHeight
+                        ? [[blockWidth, blockHeight]]
+                        : shuffle([[blockWidth, blockHeight], [blockHeight, blockWidth]]);
+                    let placed = false;
+
+                    for (const [width, height] of orientations) {
+                        const positions = [];
+                        for (let row = 0; row <= config.size - height; row += 1) {
+                            for (let col = 0; col <= config.size - width; col += 1) {
+                                positions.push([row, col]);
+                            }
+                        }
+
+                        for (const [row, col] of shuffle(positions)) {
+                            if (!canPlace(board, row, col, width, height, config.size)) {
+                                continue;
+                            }
+
+                            place(board, row, col, width, height, 1);
+                            for (let r = row; r < row + height; r += 1) {
+                                for (let c = col; c < col + width; c += 1) {
+                                    generatedCells.push([r, c]);
+                                }
+                            }
+                            placed = true;
+                            break;
+                        }
+
+                        if (placed) {
+                            break;
+                        }
+                    }
+
+                    if (!placed) {
+                        placedAllStarterBlocks = false;
+                        break;
+                    }
+                }
+
+                if (!placedAllStarterBlocks) {
+                    continue;
+                }
+
+                const testBoard = cloneBoard(board);
+                if (!solve(testBoard, config.blocks, config.blocks, config.size)) {
+                    continue;
+                }
+
+                selected = generatedCells;
+                renderBoard();
+                paintSelectedCells();
+                document.getElementById("status").textContent = "New solvable puzzle generated. Press Solve to reveal the answer.";
+                return;
+            }
+
+            document.getElementById("status").textContent = "Could not generate a puzzle right now. Try again.";
+        }
+
         function paintSolution(board) {
             board.forEach((row, rowIndex) => {
                 row.forEach((value, colIndex) => {
@@ -443,9 +534,7 @@
             }
 
             resetBoardColors();
-            selected.forEach(([row, col]) => {
-                document.getElementById(`cell-${row}-${col}`).classList.add("color-1");
-            });
+            paintSelectedCells();
 
             const board = createBoard(config.size);
             selected.forEach(([row, col]) => {
@@ -470,6 +559,7 @@
             });
         });
 
+        document.getElementById("generate-btn").addEventListener("click", generatePuzzle);
         document.getElementById("solve-btn").addEventListener("click", runSolver);
         document.getElementById("reset-btn").addEventListener("click", initGame);
 
